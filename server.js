@@ -1,61 +1,81 @@
-const axios = require("axios");
 const express = require("express");
+const dotenv = require("dotenv");
 const OpenAI = require("openai");
-require("dotenv").config();
+
+dotenv.config();
 
 const app = express();
+app.use(express.json());
+
 const PORT = process.env.PORT || 3000;
 
-// Initialize OpenAI
-const openai = new OpenAI({
+// OpenAI Client
+const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.use(express.json());
-
-// Home route
+// Home Route
 app.get("/", (req, res) => {
   res.send("Real Estate AI Backend is Running!");
 });
 
-// Webhook verification
+// Meta Webhook Verification
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (
-    mode === "subscribe" &&
-    token === process.env.VERIFY_TOKEN
-  ) {
-    console.log("Webhook verified!");
+  if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
+    console.log("Webhook Verified!");
     return res.status(200).send(challenge);
   }
 
   return res.sendStatus(403);
 });
 
-// Receive WhatsApp messages
-const reply = aiResponse.choices[0].message.content;
+// Receive WhatsApp Messages
+app.post("/webhook", async (req, res) => {
+  try {
+    console.log("Incoming Webhook:");
+    console.log(JSON.stringify(req.body, null, 2));
 
-const from =
-  req.body.entry[0].changes[0].value.messages[0].from;
+    const message =
+      req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
 
-await axios.post(
-  `https://graph.facebook.com/v23.0/${process.env.PHONE_NUMBER_ID}/messages`,
-  {
-    messaging_product: "whatsapp",
-    to: from,
-    text: {
-      body: reply,
-    },
-  },
-  {
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      "Content-Type": "application/json",
-    },
+    if (!message) {
+      return res.sendStatus(200);
+    }
+
+    console.log("User:", message);
+
+    const completion = await client.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a helpful AI assistant for a Dubai real estate agency.",
+        },
+        {
+          role: "user",
+          content: message,
+        },
+      ],
+    });
+
+    const reply = completion.choices[0].message.content;
+
+    console.log("AI Reply:");
+    console.log(reply);
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("ERROR:", err);
+    res.sendStatus(500);
   }
-);
+});
 
-console.log("Reply sent!");
+// Start Server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
