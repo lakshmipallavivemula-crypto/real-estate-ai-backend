@@ -1,3 +1,4 @@
+const axios = require("axios");
 const express = require("express");
 const OpenAI = require("openai");
 require("dotenv").config();
@@ -35,49 +36,26 @@ app.get("/webhook", (req, res) => {
 });
 
 // Receive WhatsApp messages
-app.post("/webhook", async (req, res) => {
-  try {
-    console.log("Webhook Received:");
-    console.log(JSON.stringify(req.body, null, 2));
+const reply = aiResponse.choices[0].message.content;
 
-    const message =
-      req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
+const from =
+  req.body.entry[0].changes[0].value.messages[0].from;
 
-    if (!message) {
-      console.log("No text message received.");
-      return res.sendStatus(200);
-    }
-
-    console.log("Customer:", message);
-
-    const aiResponse = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful AI assistant for a Dubai real estate agency. Help customers find properties, answer questions, and be professional.",
-        },
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-    });
-
-    const reply = aiResponse.choices[0].message.content;
-
-    console.log("AI Response:");
-    console.log(reply);
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error("Error:", error);
-    res.sendStatus(500);
+await axios.post(
+  `https://graph.facebook.com/v23.0/${process.env.PHONE_NUMBER_ID}/messages`,
+  {
+    messaging_product: "whatsapp",
+    to: from,
+    text: {
+      body: reply,
+    },
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      "Content-Type": "application/json",
+    },
   }
-});
+);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+console.log("Reply sent!");
