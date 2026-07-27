@@ -28,11 +28,31 @@ app.get("/webhook", (req, res) => {
 });
 
 // Receive WhatsApp messages
-app.post("/webhook", (req, res) => {
-  console.log(JSON.stringify(req.body, null, 2));
-  res.sendStatus(200);
-});
+app.post("/webhook", async (req, res) => {
+  try {
+    console.log(JSON.stringify(req.body, null, 2));
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    const aiResponse = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a helpful AI assistant for a Dubai real estate agency.",
+        },
+        {
+          role: "user",
+          content: "A customer says: Hello",
+        },
+      ],
+    });
+
+    console.log("AI Response:");
+    console.log(aiResponse.choices[0].message.content);
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(error);
+    res.sendStatus(500);
+  }
 });
