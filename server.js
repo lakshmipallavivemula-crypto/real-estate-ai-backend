@@ -1,8 +1,13 @@
 const express = require("express");
+const OpenAI = require("openai");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 app.use(express.json());
 
@@ -16,10 +21,7 @@ app.get("/webhook", (req, res) => {
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (
-    mode === "subscribe" &&
-    token === process.env.VERIFY_TOKEN
-  ) {
+  if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
     console.log("Webhook verified!");
     return res.status(200).send(challenge);
   }
@@ -55,4 +57,8 @@ app.post("/webhook", async (req, res) => {
     console.error(error);
     res.sendStatus(500);
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
